@@ -18,7 +18,7 @@ const int RTC_CLK_PIN = 5;
 const int RTC_DAT_PIN = 6;
 const int RTC_RST_PIN = 7;
 
-String phone_number = "+639311235160";
+String phone_number = "+639932842951";
 String current_phone_number = "+639617789314";
 
 TinyGPSPlus gps;
@@ -26,71 +26,81 @@ SoftwareSerial gpsSerial(GPS_RX_PIN, GPS_TX_PIN);
 SoftwareSerial SIM900(GSM_RX_PIN, GSM_TX_PIN);
 virtuabotixRTC myRTC(RTC_CLK_PIN, RTC_DAT_PIN, RTC_RST_PIN);
 
-const int BUTTON_PIN = 2;
-const int HALL_SENSOR_PIN = 3;
+const int BUTTON_PIN_1 = 2;
+const int BUTTON_PIN_2 = 3;
+const int HALL_SENSOR_PIN = 4;
 
-long pulse_count = 0;
+
 bool hall_sensor_last_value = false;
-
 long int millis_start = 0;
-int press_interval = 500;
 int button_release_interval = 100;
 int long_press_delay = 800;
-bool button_first_press = false;
 
 //FARE
-const float min_distance_travelled = 1000;
-const float min_FARE = 10;
+const int min_distance_travelled = 1000; // Meters
+const int min_fare = 10;
 const float succeeding_meter_rate = 0.005;
-const float wheel_circumference = 1.90;   // Meters
+const float wheel_circumference = 2.314;   // Meters
 
-float distance_travelled = 0;
-float total_fare = 10;
-float succeeding_distance = 0;
+// Passenger 1
+bool passenger_1_status = false;
+long pulse_count_1 = 0;
+float distance_travelled_1 = 0;
+float total_fare_1 = 10;
+float succeeding_distance_1 = 0;
 
-char incoming_char = 0;
-String sms_content = "";
+// Passenger 2
+bool passenger_2_status = false;
+long pulse_count_2 = 0;
+float distance_travelled_2 = 0;
+float total_fare_2 = 10;
+float succeeding_distance_2 = 0;
 
 void setup() {
   // Set RTC current date, and time in the following format:
   // seconds, minutes, hours, day of the week, day of the month, month, year
-  //  myRTC.setDS1302Time(0, 36, 15, 4, 8, 3, 2023);
+//  myRTC.setDS1302Time(0, 50, 14, 4, 15, 3, 2023);
 
-  pinMode(BUTTON_PIN,INPUT_PULLUP);
+  pinMode(BUTTON_PIN_1,INPUT_PULLUP);
+  pinMode(BUTTON_PIN_2,INPUT_PULLUP);
   pinMode(HALL_SENSOR_PIN,INPUT);
   
   Serial.begin(19200);
   lcd.init();
   lcd.backlight();
   lcd_print(5, 0, "FAIR  FARE");
-  lcd_print(3, 2, "Getting  ready");
+  lcd_print(0, 1, "-------------------");
+  lcd_print(3, 2, "Getting  Ready");
   Serial.println("FAIR FARE");
   Serial.println("Getting ready");
 
   SIM900.begin(115200);
   delay(500);
 
+  Serial.println("Initializing GSM");
+
   // AT command to set SIM900 to SMS mode
   SIM900.print("AT+CMGF=1\r"); 
-  delay(100);
+  delay(500);
+
+  if(SIM900.available() > 0) {
+    String sms_content = SIM900.readString();
+    Serial.println(sms_content);
+  }
   
   // Set module to send SMS data to serial out upon receipt 
   SIM900.print("AT+CNMI=2,2,0,0,0\r");
-  delay(400);
+  delay(500);
 
   if(SIM900.available() > 0) {
-    if (SIM900.read() > 0) {
-      while (SIM900.available() > 0) {
-        char c = SIM900.read();
-      }
-    }
+    String sms_content = SIM900.readString();
+    Serial.println(sms_content);
   }
 
   gpsSerial.begin(9600);
   delay(1000);
   
-  lcd_print(3, 1, "");
-  lcd_print(3, 2, "");
+  lcd_print(0, 1, "--------------------");
   Serial.println("FAIR FARE Ready!");
 }
 
@@ -103,43 +113,18 @@ void loop() {
 
 void read_sms() {
   SIM900.listen();
-  
-  if(SIM900.available() > 0) {  
-    //    while (SIM900.available() > 0) {
-    //      incoming_char = SIM900.read();
-    //      sms_content += String(incoming_char);  
-    //      delay(10);    
-    //    }
-    //
-    //    Serial.println(sms_content);
-    //    
-    //    if (sms_content.indexOf("Location") > 0 || sms_content.indexOf("location") > 0) {
-    //      Serial.println("Location request received");
-    //      Serial.println("Reading GPS...");
-    //      lcd.setCursor(0, 1);
-    //      lcd.print("  Location request  ");
-    //      lcd.setCursor(0, 2);
-    //      lcd.print("      received      ");
-    //      lcd.setCursor(0, 3);
-    //      lcd.print("   Reading GPS...   ");
-    //      read_gps();
-    //      sendSMS();
-    //    }
-    //
-    //    incoming_char = 0;
-    //    sms_content = "";
-    if (SIM900.read() > 0) {
-      while (SIM900.available() > 0) {
-        char c = SIM900.read();
-      }
-      Serial.println("Location request received");
-      Serial.println("Reading GPS...");
-      lcd.setCursor(0, 1);
-      lcd.print("  Location request  ");
-      lcd.setCursor(0, 2);
-      lcd.print("      received      ");
-      lcd.setCursor(0, 3);
-      lcd.print("   Reading GPS...   ");
+  if(SIM900.available() > 0) {
+    String sms_content = SIM900.readString();
+    Serial.println(sms_content );
+    if (sms_content.length() > 20) {
+//       Serial.println("Location request received");
+//       Serial.println("Reading GPS...");
+      // lcd.setCursor(0, 1);
+      // lcd.print("  Location request  ");
+      // lcd.setCursor(0, 2);
+      // lcd.print("      received      ");
+      // lcd.setCursor(0, 3);
+      // lcd.print("   Reading GPS...   ");
       read_gps();
       sendSMS();
     }
@@ -147,20 +132,17 @@ void read_sms() {
 }
 
 void odometer_loop() {
-  if (digitalRead(BUTTON_PIN) == LOW) {
+  if (digitalRead(BUTTON_PIN_1) == LOW) {
     delay(long_press_delay);
-    if (digitalRead(BUTTON_PIN) == LOW) {
+    if (digitalRead(BUTTON_PIN_1) == LOW) {
       Serial.println("Halong!");
-      lcd_print(0, 1, "");
       lcd_print(6, 2, "Halong!");
       lcd_print(0, 3, "");
       while(true) {
-        if (millis() - millis_start > button_release_interval) {
-          if (digitalRead(BUTTON_PIN) == HIGH) {
-            delay(2000);
-            start_fare_solving();
-            break;
-          }
+        if (digitalRead(BUTTON_PIN_1) == HIGH) {
+          delay(2000);
+          start_fare_solving();
+          break;
         }
       }
     }
@@ -168,15 +150,21 @@ void odometer_loop() {
 }
 
 void start_fare_solving() {
-  pulse_count = 0;
-  distance_travelled = 0;
-  total_fare = 10;
-  succeeding_distance = 0;
+  passenger_1_status = true;
+  pulse_count_1 = 0;
+  distance_travelled_1 = 0;
+  total_fare_1 = 10;
+  succeeding_distance_1 = 0;
 
-//  lcd_print(5, 0, "FAIR  FARE");
-  lcd_print(0, 1, "");
-  lcd_print(0, 2, "Distance: " + String(distance_travelled) + "Km");
-  lcd_print(0, 3, "Fare: Php" + String(total_fare));
+  pulse_count_2 = 0;
+  distance_travelled_2 = 0;
+  total_fare_2 = 10;
+  succeeding_distance_2 = 0;
+
+  lcd_print(0, 0, "P1 Distance: " + String(distance_travelled_1) + "Km");
+  lcd_print(0, 1, "P1 Fare: Php" + String(total_fare_1));
+  lcd_print(0, 2, "P2 Distance: --     ");
+  lcd_print(0, 3, "P2 Fare: --         ");
   
   while(true)  {
     int sensor_value = digitalRead(HALL_SENSOR_PIN);
@@ -190,60 +178,149 @@ void start_fare_solving() {
       while (true) {
         sensor_value = digitalRead(HALL_SENSOR_PIN);
         if (sensor_value == LOW) {
-          pulse_count++;
-          calculate_fare(pulse_count);
-          lcd.setCursor(10, 2);
-          lcd.print(String(distance_travelled) + "Km");
-          lcd.setCursor(6, 3);
-          lcd.print("Php" + String(total_fare));
-          Serial.print("Distance(Km): ");
-          Serial.print(String(distance_travelled));
-          Serial.print(" FARE(Php): ");
-          Serial.println(String(total_fare));
+          if (passenger_1_status){
+            pulse_count_1++;
+            calculate_fare_1(pulse_count_1);
+            lcd.setCursor(13, 0);
+            lcd.print(String(distance_travelled_1) + "Km");
+            lcd.setCursor(9, 1);
+            lcd.print("Php" + String(total_fare_1));
+            Serial.print("P1 Distance(Km): ");
+            Serial.print(String(distance_travelled_1));
+            Serial.print(" P1 FARE(Php): ");
+            Serial.println(String(total_fare_1));
+          } else {
+            pulse_count_1 = 0;
+            distance_travelled_1 = 0;
+            total_fare_1 = 10;
+            succeeding_distance_1 = 0;
+          }
+          if (passenger_2_status){
+            pulse_count_2++;
+            calculate_fare_2(pulse_count_2);
+            lcd.setCursor(13, 2);
+            lcd.print(String(distance_travelled_2) + "Km");
+            lcd.setCursor(9, 3);
+            lcd.print("Php" + String(total_fare_2));
+            Serial.print("P2 Distance(Km): ");
+            Serial.print(String(distance_travelled_2));
+            Serial.print(" P2 FARE(Php): ");
+            Serial.println(String(total_fare_2));
+          } else {
+            pulse_count_2 = 0;
+            distance_travelled_2 = 0;
+            total_fare_2 = 10;
+            succeeding_distance_2 = 0;
+          }
+          
           hall_sensor_last_value = true;
           break;
         }
-        if(digitalRead(BUTTON_PIN) == LOW)  {
+        
+        if(digitalRead(BUTTON_PIN_1) == LOW)  {
+          delay(long_press_delay);
+          if (digitalRead(BUTTON_PIN_1) == LOW) {
+            if (passenger_1_status) {
+              passenger_1_status = false;
+              pulse_count_1 = 0;
+              distance_travelled_1 = 0;
+              total_fare_1 = 10;
+              succeeding_distance_1 = 0;
+              lcd.setCursor(13, 0);
+              lcd.print("--     ");
+              lcd.setCursor(9, 1);
+              lcd.print("--         ");
+              Serial.print("P1 Distance(Km): --");                
+              Serial.println(" P1 FARE(Php): --");                  
+            } else {
+              passenger_1_status = true;
+              lcd.setCursor(13, 0);
+              lcd.print(String(distance_travelled_1) + "Km");
+              lcd.setCursor(9, 1);
+              lcd.print("Php" + String(total_fare_1));
+              Serial.print("P1 Distance(Km): ");
+              Serial.print(String(distance_travelled_1));
+              Serial.print(" P1 FARE(Php): ");
+              Serial.println(String(total_fare_1));
+            }
+            while(true) {
+              if (digitalRead(BUTTON_PIN_1) == HIGH) {
+                break;
+              }
+            }
+          }
+        }
+
+        if(digitalRead(BUTTON_PIN_2) == LOW)  {
+          delay(long_press_delay);
+          if (digitalRead(BUTTON_PIN_2) == LOW) {
+            if (passenger_2_status) {
+              passenger_2_status = false;
+              pulse_count_2 = 0;
+              distance_travelled_2 = 0;
+              total_fare_2 = 10;
+              succeeding_distance_2 = 0;
+              lcd.setCursor(13, 2);
+              lcd.print("--     ");
+              lcd.setCursor(9, 3);
+              lcd.print("--         ");
+              Serial.print("P2 Distance(Km): --");                
+              Serial.println(" P2 FARE(Php): --");                  
+            } else {
+              passenger_2_status = true;
+              lcd.setCursor(13, 2);
+              lcd.print(String(distance_travelled_2) + "Km");
+              lcd.setCursor(9, 3);
+              lcd.print("Php" + String(total_fare_2));
+              Serial.print("P2 Distance(Km): ");
+              Serial.print(String(distance_travelled_2));
+              Serial.print(" P2 FARE(Php): ");
+              Serial.println(String(total_fare_2));
+            }
+            while(true) {
+              if (digitalRead(BUTTON_PIN_2) == HIGH) {
+                break;
+              }
+            }
+          }
+        }
+
+        if (!passenger_2_status && !passenger_1_status) {
           break_status = true;
           break;
         }
       }
     }
 
-    if (break_status || digitalRead(BUTTON_PIN) == LOW) {
-      delay(long_press_delay);
-      if (digitalRead(BUTTON_PIN) == LOW) {
-        
-        lcd_print(0, 1, "");
-        lcd_print(5, 2, "Thank you!");
-        lcd_print(0, 3, "");
-        Serial.println("Thank you!");
-        delay(2000);
-        lcd_print(0, 2, "");
-        bool end_fare_solving = false;
-        while(true) {
-          if (millis() - millis_start > button_release_interval) {
-            if (digitalRead(BUTTON_PIN) == HIGH) {
-              end_fare_solving = true;
-              break;
-            }
-          }
-        }
-        if (end_fare_solving) {
-          break;
-        }
-      }
+    if (break_status) {
+      lcd_print(0, 0, "     FAIR  FARE     ");
+      lcd_print(0, 1, "--------------------");
+      lcd_print(0, 2, "     Thank you!");
+      lcd_print(0, 3, "");
+      Serial.println("Thank you!");
+      delay(2000);
+      break;
     }
   }
 }
 
-void calculate_fare(long total_pulse) {
-  distance_travelled = (wheel_circumference * total_pulse) / 1000;
-  if ((distance_travelled * 1000) > min_distance_travelled) {
-    succeeding_distance = (distance_travelled * 1000) - min_distance_travelled;
-    total_fare = (succeeding_distance * 0.005) + 10; 
+void calculate_fare_1(long total_pulse) {
+  distance_travelled_1 = (wheel_circumference * total_pulse) / 1000;
+  if ((distance_travelled_1 * 1000) > min_distance_travelled) {
+    succeeding_distance_1 = (distance_travelled_1 * 1000) - min_distance_travelled;
+    total_fare_1 = (succeeding_distance_1 * 0.005) + 10; 
   } else {
-    total_fare = 10;
+    total_fare_1 = min_fare;
+  }
+}
+
+void calculate_fare_2(long total_pulse) {
+  distance_travelled_2 = (wheel_circumference * total_pulse) / 1000;
+  if ((distance_travelled_2 * 1000) > min_distance_travelled) {
+    succeeding_distance_2 = (distance_travelled_2 * 1000) - min_distance_travelled;
+    total_fare_2 = (succeeding_distance_2 * 0.005) + 10; 
+  } else {
+    total_fare_2 = min_fare;
   }
 }
 
@@ -276,23 +353,13 @@ void read_gps() {
 
 void displayGpsInfo() {
   if (gps.location.isValid()) {
-    
     Serial.print("Latitude: ");
     Serial.println(gps.location.lat(), 6);
     Serial.print("Longitude: ");
     Serial.println(gps.location.lng(), 6);
-//    lcd.setCursor(0, 2);
-//    lcd.print("Lat: " + String(gps.location.lat()));
-//    lcd.setCursor(0, 3);
-//    lcd.print("Long: " + String(gps.location.lng()));
   }
   else {
-    
     Serial.println("Location: Not Available");
-//    lcd.setCursor(0, 2);
-//    lcd.print("Location:");
-//    lcd.setCursor(0, 3);
-//    lcd.print("Not Available");
   }
 }
 
@@ -300,21 +367,21 @@ void printDateTime() {
   
   myRTC.updateTime();
   
-  Serial.print("Current Date / Time: ");
-  Serial.print(myRTC.dayofmonth);
-  Serial.print("/");
-  Serial.print(myRTC.month);
-  Serial.print("/");
-  Serial.print(myRTC.year);
-  Serial.print(" ");
-  Serial.print(myRTC.hours);
-  Serial.print(":");
-  Serial.print(myRTC.minutes);
-  Serial.print(":");
-  Serial.println(myRTC.seconds);
-
-  lcd.setCursor(0, 1);
-  lcd.print("                    ");
+  //  Serial.print("Current Date / Time: ");
+  //  Serial.print(myRTC.dayofmonth);
+  //  Serial.print("/");
+  //  Serial.print(myRTC.month);
+  //  Serial.print("/");
+  //  Serial.print(myRTC.year);
+  //  Serial.print(" ");
+  //  Serial.print(myRTC.hours);
+  //  Serial.print(":");
+  //  Serial.print(myRTC.minutes);
+  //  Serial.print(":");
+  //  Serial.println(myRTC.seconds);
+  
+  //  lcd.setCursor(0, 1);
+  //  lcd.print("                    ");
   lcd.setCursor(0, 2);
   lcd.print("   Date: " + 
     (myRTC.month < 10 ? "0" + String(myRTC.month) : String(myRTC.month)) + "-" + 
@@ -330,8 +397,12 @@ void printDateTime() {
 void sendSMS() {
 
   Serial.println("Sending location...");
-  lcd.setCursor(0, 3);
-  lcd.print("Sending location... ");
+//  lcd.setCursor(0, 3);
+//  lcd.print("Sending location... ");
+
+  // AT command to set SIM900 to SMS mode
+  SIM900.print("AT+CMGF=1\r");
+  delay(100);
 
   // USE INTERNATIONAL FORMAT CODE FOR MOBILE NUMBERS
   SIM900.println("AT + CMGS = \"" + phone_number + "\"");
@@ -353,11 +424,13 @@ void sendSMS() {
   delay(3000);
 
   Serial.println("Location Sent");
-  lcd.setCursor(0, 3);
-  lcd.print("   Location Sent    ");
+//  lcd.setCursor(0, 3);
+//  lcd.print("   Location Sent    ");
 
-  // Set module to send SMS data to serial out upon receipt 
+  // Set module to send SMS data to serial out upon receipt
   SIM900.print("AT+CNMI=2,2,0,0,0\r");
+  delay(500);
   
-  delay(3000);
+  delay(2500);
+//  lcd_print(0, 1, "-------------------");
 }
