@@ -1,5 +1,4 @@
 #include <LiquidCrystal_I2C.h>
-#include <virtuabotixRTC.h>
 #include <SoftwareSerial.h>
 #include <TinyGPS++.h>
 
@@ -13,18 +12,12 @@ const int GPS_TX_PIN = 9;
 const int GSM_RX_PIN = 10;
 const int GSM_TX_PIN = 11;
 
-// RTC Pins
-const int RTC_CLK_PIN = 5;
-const int RTC_DAT_PIN = 6;
-const int RTC_RST_PIN = 7;
-
-String phone_number = "+639932842951";
-String current_phone_number = "+639617789314";
+String phone_number = "+639XXXXXXXXX";
+String current_phone_number = "+639XXXXXXXXX";
 
 TinyGPSPlus gps;
 SoftwareSerial gpsSerial(GPS_RX_PIN, GPS_TX_PIN);
 SoftwareSerial SIM900(GSM_RX_PIN, GSM_TX_PIN);
-virtuabotixRTC myRTC(RTC_CLK_PIN, RTC_DAT_PIN, RTC_RST_PIN);
 
 const int BUTTON_PIN_1 = 2;
 const int BUTTON_PIN_2 = 3;
@@ -39,8 +32,8 @@ int long_press_delay = 800;
 //FARE
 const int min_distance_travelled = 1000; // Meters
 const int min_fare = 10;
-const float succeeding_meter_rate = 0.005;
-const float wheel_circumference = 2.314;   // Meters
+const float succeeding_meter_rate = 0.008;
+const float wheel_circumference = 1.75552;   // Meters
 
 // Passenger 1
 bool passenger_1_status = false;
@@ -57,10 +50,6 @@ float total_fare_2 = 10;
 float succeeding_distance_2 = 0;
 
 void setup() {
-  // Set RTC current date, and time in the following format:
-  // seconds, minutes, hours, day of the week, day of the month, month, year
-//  myRTC.setDS1302Time(0, 50, 14, 4, 15, 3, 2023);
-
   pinMode(BUTTON_PIN_1,INPUT_PULLUP);
   pinMode(BUTTON_PIN_2,INPUT_PULLUP);
   pinMode(HALL_SENSOR_PIN,INPUT);
@@ -85,7 +74,7 @@ void setup() {
 
   if(SIM900.available() > 0) {
     String sms_content = SIM900.readString();
-    Serial.println(sms_content);
+//    Serial.println(sms_content);
   }
   
   // Set module to send SMS data to serial out upon receipt 
@@ -94,18 +83,19 @@ void setup() {
 
   if(SIM900.available() > 0) {
     String sms_content = SIM900.readString();
-    Serial.println(sms_content);
+//    Serial.println(sms_content);
   }
 
   gpsSerial.begin(9600);
   delay(1000);
   
   lcd_print(0, 1, "--------------------");
+  lcd_print(0, 2, "       Vacant      ");
   Serial.println("FAIR FARE Ready!");
 }
 
 void loop() {
-  printDateTime();
+//  printDateTime();
   read_sms();
   odometer_loop();
 //  read_gps();
@@ -115,16 +105,7 @@ void read_sms() {
   SIM900.listen();
   if(SIM900.available() > 0) {
     String sms_content = SIM900.readString();
-    Serial.println(sms_content );
-    if (sms_content.length() > 20) {
-//       Serial.println("Location request received");
-//       Serial.println("Reading GPS...");
-      // lcd.setCursor(0, 1);
-      // lcd.print("  Location request  ");
-      // lcd.setCursor(0, 2);
-      // lcd.print("      received      ");
-      // lcd.setCursor(0, 3);
-      // lcd.print("   Reading GPS...   ");
+    if (sms_content.length() > 30) {
       read_gps();
       sendSMS();
     }
@@ -135,7 +116,6 @@ void odometer_loop() {
   if (digitalRead(BUTTON_PIN_1) == LOW) {
     delay(long_press_delay);
     if (digitalRead(BUTTON_PIN_1) == LOW) {
-      Serial.println("Halong!");
       lcd_print(6, 2, "Halong!");
       lcd_print(0, 3, "");
       while(true) {
@@ -185,10 +165,6 @@ void start_fare_solving() {
             lcd.print(String(distance_travelled_1) + "Km");
             lcd.setCursor(9, 1);
             lcd.print("Php" + String(total_fare_1));
-            Serial.print("P1 Distance(Km): ");
-            Serial.print(String(distance_travelled_1));
-            Serial.print(" P1 FARE(Php): ");
-            Serial.println(String(total_fare_1));
           } else {
             pulse_count_1 = 0;
             distance_travelled_1 = 0;
@@ -202,10 +178,6 @@ void start_fare_solving() {
             lcd.print(String(distance_travelled_2) + "Km");
             lcd.setCursor(9, 3);
             lcd.print("Php" + String(total_fare_2));
-            Serial.print("P2 Distance(Km): ");
-            Serial.print(String(distance_travelled_2));
-            Serial.print(" P2 FARE(Php): ");
-            Serial.println(String(total_fare_2));
           } else {
             pulse_count_2 = 0;
             distance_travelled_2 = 0;
@@ -229,19 +201,13 @@ void start_fare_solving() {
               lcd.setCursor(13, 0);
               lcd.print("--     ");
               lcd.setCursor(9, 1);
-              lcd.print("--         ");
-              Serial.print("P1 Distance(Km): --");                
-              Serial.println(" P1 FARE(Php): --");                  
+              lcd.print("--         ");             
             } else {
               passenger_1_status = true;
               lcd.setCursor(13, 0);
               lcd.print(String(distance_travelled_1) + "Km");
               lcd.setCursor(9, 1);
               lcd.print("Php" + String(total_fare_1));
-              Serial.print("P1 Distance(Km): ");
-              Serial.print(String(distance_travelled_1));
-              Serial.print(" P1 FARE(Php): ");
-              Serial.println(String(total_fare_1));
             }
             while(true) {
               if (digitalRead(BUTTON_PIN_1) == HIGH) {
@@ -263,19 +229,13 @@ void start_fare_solving() {
               lcd.setCursor(13, 2);
               lcd.print("--     ");
               lcd.setCursor(9, 3);
-              lcd.print("--         ");
-              Serial.print("P2 Distance(Km): --");                
-              Serial.println(" P2 FARE(Php): --");                  
+              lcd.print("--         ");               
             } else {
               passenger_2_status = true;
               lcd.setCursor(13, 2);
               lcd.print(String(distance_travelled_2) + "Km");
               lcd.setCursor(9, 3);
               lcd.print("Php" + String(total_fare_2));
-              Serial.print("P2 Distance(Km): ");
-              Serial.print(String(distance_travelled_2));
-              Serial.print(" P2 FARE(Php): ");
-              Serial.println(String(total_fare_2));
             }
             while(true) {
               if (digitalRead(BUTTON_PIN_2) == HIGH) {
@@ -299,6 +259,7 @@ void start_fare_solving() {
       lcd_print(0, 3, "");
       Serial.println("Thank you!");
       delay(2000);
+      lcd_print(0, 2, "       Vacant      ");
       break;
     }
   }
@@ -353,52 +314,19 @@ void read_gps() {
 
 void displayGpsInfo() {
   if (gps.location.isValid()) {
-    Serial.print("Latitude: ");
-    Serial.println(gps.location.lat(), 6);
-    Serial.print("Longitude: ");
-    Serial.println(gps.location.lng(), 6);
+//    Serial.print("Latitude: ");
+//    Serial.println(gps.location.lat(), 6);
+//    Serial.print("Longitude: ");
+//    Serial.println(gps.location.lng(), 6);
   }
   else {
-    Serial.println("Location: Not Available");
+//    Serial.println("Location: Not Available");
   }
-}
-
-void printDateTime() {
-  
-  myRTC.updateTime();
-  
-  //  Serial.print("Current Date / Time: ");
-  //  Serial.print(myRTC.dayofmonth);
-  //  Serial.print("/");
-  //  Serial.print(myRTC.month);
-  //  Serial.print("/");
-  //  Serial.print(myRTC.year);
-  //  Serial.print(" ");
-  //  Serial.print(myRTC.hours);
-  //  Serial.print(":");
-  //  Serial.print(myRTC.minutes);
-  //  Serial.print(":");
-  //  Serial.println(myRTC.seconds);
-  
-  //  lcd.setCursor(0, 1);
-  //  lcd.print("                    ");
-  lcd.setCursor(0, 2);
-  lcd.print("   Date: " + 
-    (myRTC.month < 10 ? "0" + String(myRTC.month) : String(myRTC.month)) + "-" + 
-    (myRTC.dayofmonth < 10 ? "0" + String(myRTC.dayofmonth) : String(myRTC.dayofmonth)) + "-" + 
-    String(myRTC.year).substring(2));
-  lcd.setCursor(0, 3);
-  lcd.print("   Time: " + 
-    (myRTC.hours < 10 ? "0" + String(myRTC.hours) : String(myRTC.hours)) + ":" + 
-    (myRTC.minutes < 10 ? "0" + String(myRTC.minutes) : String(myRTC.minutes)) + ":" + 
-    (myRTC.seconds < 10 ? "0" + String(myRTC.seconds) : String(myRTC.seconds)));
 }
 
 void sendSMS() {
 
   Serial.println("Sending location...");
-//  lcd.setCursor(0, 3);
-//  lcd.print("Sending location... ");
 
   // AT command to set SIM900 to SMS mode
   SIM900.print("AT+CMGF=1\r");
@@ -424,13 +352,10 @@ void sendSMS() {
   delay(3000);
 
   Serial.println("Location Sent");
-//  lcd.setCursor(0, 3);
-//  lcd.print("   Location Sent    ");
 
   // Set module to send SMS data to serial out upon receipt
   SIM900.print("AT+CNMI=2,2,0,0,0\r");
   delay(500);
   
   delay(2500);
-//  lcd_print(0, 1, "-------------------");
 }
